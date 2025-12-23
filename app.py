@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import pearsonr, linregress
 import warnings
+import os
+import matplotlib.font_manager as fm  # 引入字体管理模块
 
 # ===================== 1. 基础配置 =====================
 st.set_page_config(
@@ -15,25 +17,50 @@ st.set_page_config(
 # 消除警告
 warnings.filterwarnings('ignore')
 
-# 字体设置 (适配不同系统)
-import platform
-system = platform.system()
-if system == 'Windows':
-    plt.rcParams['font.sans-serif'] = ['SimHei']
-elif system == 'Darwin':  # MacOS
-    plt.rcParams['font.sans-serif'] = ['Arial Unicode MS']
-else:
-    plt.rcParams['font.sans-serif'] = ['DejaVu Sans']
+# ----------------- 字体设置 (解决中文显示方框问题) -----------------
+# 尝试加载本地字体文件 (font.otf 或 font.ttf)
+# 请确保你已将字体文件上传到 GitHub 并重命名为 font.otf
+font_files = ['font.otf', 'font.ttf', 'simhei.ttf']
+font_loaded = False
+
+for font_file in font_files:
+    if os.path.exists(font_file):
+        try:
+            # 1. 加载字体文件
+            fm.fontManager.addfont(font_file)
+            # 2. 获取字体内部名称
+            font_prop = fm.FontProperties(fname=font_file)
+            custom_font_name = font_prop.get_name()
+            # 3. 设置为全局默认字体
+            plt.rcParams['font.family'] = custom_font_name
+            font_loaded = True
+            break
+        except Exception as e:
+            print(f"字体加载失败: {e}")
+
+# 如果没找到本地字体，尝试使用系统回退字体
+if not font_loaded:
+    import platform
+    system = platform.system()
+    if system == 'Windows':
+        plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei']
+    elif system == 'Darwin':  # MacOS
+        plt.rcParams['font.sans-serif'] = ['Arial Unicode MS']
+    else:
+        # Linux (Streamlit Cloud) 默认没有中文字体，如果走到这里可能会显示方框
+        plt.rcParams['font.sans-serif'] = ['DejaVu Sans']
+
 plt.rcParams['axes.unicode_minus'] = False
+# ------------------------------------------------------------------
 
 # ===================== 2. 数据预处理逻辑 =====================
 @st.cache_data
-def load_and_preprocess_data(uploaded_file):
+def load_and_preprocess_data(file_path_or_buffer):
     """
-    集成 '数据集预处理.py' 的核心逻辑
+    数据读取与预处理函数
     """
     try:
-        df = pd.read_csv(uploaded_file)
+        df = pd.read_csv(file_path_or_buffer)
         
         # --- 核心预处理步骤 ---
         # 1. 关键列处理
@@ -67,7 +94,7 @@ def load_and_preprocess_data(uploaded_file):
         st.error(f"数据处理出错: {e}")
         return None
 
-# ===================== 3. 图表绘制函数集 =====================
+# ===================== 3. 图表绘制函数集 (16个图) =====================
 
 def plot_fig1(df):
     """图1：球员年度总跑位得分分布直方图"""
@@ -263,79 +290,97 @@ def plot_fig16(df):
 # ===================== 4. Streamlit 页面布局 =====================
 
 st.title("🏏 IPL 顶级球员生命周期与表现可视化系统")
-st.markdown("---")
 
-# 侧边栏：文件上传
-st.sidebar.header("1. 数据上传")
-uploaded_file = st.sidebar.file_uploader("上传 CSV 数据文件", type=['csv'])
+# 定义数据文件名
+DEFAULT_FILE = "data.csv"
+ALT_FILE = "6-球员生命周期_预处理后.csv"
 
-if uploaded_file is not None:
-    # 加载与预处理
-    df = load_and_preprocess_data(uploaded_file)
-    if df is not None:
-        st.sidebar.success(f"数据加载成功！包含 {len(df)} 条记录")
-        
-        # 侧边栏：图表选择
-        st.sidebar.header("2. 图表选择")
-        category = st.sidebar.selectbox(
-            "选择分析维度",
-            ["数据总览", "击球表现分析", "投球表现分析", "综合与相关性分析", "球员特写"]
-        )
-        
-        chart_map = {
-            "数据总览": {
-                "图1: 球员年度得分分布": plot_fig1,
-                "图12: 参赛球员年份分布": plot_fig12,
-                "图15: 球员类型年度分布": plot_fig15
-            },
-            "击球表现分析": {
-                "图4: 击球平均率箱线图": plot_fig4,
-                "图8: 得分结构堆叠图": plot_fig8,
-                "图9: 平均率区间球员分布": plot_fig9,
-                "图10: TOP5球员得分趋势": plot_fig10,
-                "图13: 参赛年限与稳定性": plot_fig13
-            },
-            "投球表现分析": {
-                "图2: 三柱门数 vs 失分数": plot_fig2,
-                "图11: 投球效率热力图": plot_fig11,
-                "图14: 投手经济率象限分析": plot_fig14
-            },
-            "综合与相关性分析": {
-                "图6: 综合分析组合图": plot_fig6,
-                "图7: 参赛场次与效率": plot_fig7,
-                "图16: 接球能力与综合表现": plot_fig16
-            },
-            "球员特写": {
-                "图3: Virat Kohli 年度趋势": plot_fig3,
-                "图5: 顶级球员雷达图": plot_fig5
-            }
+# 初始化
+df = None
+loaded_msg = ""
+
+# 1. 尝试自动加载
+if os.path.exists(DEFAULT_FILE):
+    df = load_and_preprocess_data(DEFAULT_FILE)
+    loaded_msg = f"已自动加载本地数据 ({DEFAULT_FILE})"
+elif os.path.exists(ALT_FILE):
+    df = load_and_preprocess_data(ALT_FILE)
+    loaded_msg = f"已自动加载本地数据 ({ALT_FILE})"
+
+# 侧边栏
+st.sidebar.header("数据与设置")
+
+if df is not None:
+    st.sidebar.success(f"✅ {loaded_msg}")
+    st.sidebar.info(f"包含 {len(df)} 条记录")
+    
+    if st.sidebar.checkbox("上传新文件覆盖"):
+        uploaded_file = st.sidebar.file_uploader("上传 CSV", type=['csv'])
+        if uploaded_file is not None:
+            df = load_and_preprocess_data(uploaded_file)
+            st.sidebar.success("已切换为上传的数据")
+else:
+    st.sidebar.warning("⚠️ 未检测到本地 data.csv")
+    uploaded_file = st.sidebar.file_uploader("请上传 CSV 数据文件", type=['csv'])
+    if uploaded_file is not None:
+        df = load_and_preprocess_data(uploaded_file)
+
+# 主逻辑
+if df is not None:
+    st.markdown("---")
+    
+    # 侧边栏：图表选择
+    st.sidebar.header("📊 图表导航")
+    category = st.sidebar.selectbox(
+        "选择分析维度",
+        ["数据总览", "击球表现分析", "投球表现分析", "综合与相关性分析", "球员特写"]
+    )
+    
+    chart_map = {
+        "数据总览": {
+            "图1: 球员年度得分分布": plot_fig1,
+            "图12: 参赛球员年份分布": plot_fig12,
+            "图15: 球员类型年度分布": plot_fig15
+        },
+        "击球表现分析": {
+            "图4: 击球平均率箱线图": plot_fig4,
+            "图8: 得分结构堆叠图": plot_fig8,
+            "图9: 平均率区间球员分布": plot_fig9,
+            "图10: TOP5球员得分趋势": plot_fig10,
+            "图13: 参赛年限与稳定性": plot_fig13
+        },
+        "投球表现分析": {
+            "图2: 三柱门数 vs 失分数": plot_fig2,
+            "图11: 投球效率热力图": plot_fig11,
+            "图14: 投手经济率象限分析": plot_fig14
+        },
+        "综合与相关性分析": {
+            "图6: 综合分析组合图": plot_fig6,
+            "图7: 参赛场次与效率": plot_fig7,
+            "图16: 接球能力与综合表现": plot_fig16
+        },
+        "球员特写": {
+            "图3: Virat Kohli 年度趋势": plot_fig3,
+            "图5: 顶级球员雷达图": plot_fig5
         }
-        
-        selected_chart_name = st.sidebar.radio("选择图表", list(chart_map[category].keys()))
-        plot_func = chart_map[category][selected_chart_name]
-        
-        # 主界面显示
-        st.subheader(f"📊 {selected_chart_name}")
-        
-        # 绘图
-        try:
-            fig = plot_func(df)
-            st.pyplot(fig)
-        except Exception as e:
-            st.error(f"图表生成出错: {e}")
-        
-        # 显示原始数据样例
-        with st.expander("查看当前数据样例"):
-            st.dataframe(df.head())
-    else:
-        st.error("数据处理失败，请检查文件格式。")
+    }
+    
+    selected_chart_name = st.sidebar.radio("选择图表", list(chart_map[category].keys()))
+    plot_func = chart_map[category][selected_chart_name]
+    
+    # 主界面显示
+    st.subheader(f"📈 {selected_chart_name}")
+    
+    try:
+        fig = plot_func(df)
+        st.pyplot(fig)
+    except Exception as e:
+        st.error(f"图表生成失败: {e}")
+        st.write("可能原因：数据列名不匹配或缺少关键字段")
+
+    # 底部数据预览
+    with st.expander("🔍 查看源数据"):
+        st.dataframe(df.head())
 
 else:
-    st.info("👋 请在左侧上传 '6-球员生命周期.csv' 或预处理后的文件以开始分析。")
-    st.markdown("""
-    ### 系统功能说明：
-    本系统集成了16个分析维度，上传数据后可自动进行：
-    - **数据清洗**：自动处理缺失值、转换数据类型。
-    - **多维分析**：覆盖击球、投球、防守及球员综合评价。
-    - **可视化展示**：生成高清交互式图表。
-    """)
+    st.info("👋 请上传数据以开始分析。")
