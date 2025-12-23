@@ -309,15 +309,6 @@ def plot_fig5(df):
     ax.grid(True, alpha=0.3)
     return fig
 
-def plot_fig6(df):
-    """图6：组合图 (因为太大，直接提示)"""
-    # 组合图太复杂且不适合网页小窗口，保留原始代码逻辑但建议用户看分图
-    fig = plt.figure(figsize=(10, 6))
-    plt.text(0.5, 0.5, "注意：原代码生成的是一张18x24的大图\n网页端建议分开查看图1-图5以获得最佳体验", 
-             ha='center', fontsize=12)
-    plt.axis('off')
-    return fig
-
 def plot_fig7(df):
     """图7：效率散点图"""
     core_cols = ['Year', 'Matches_Batted', 'Runs_Scored', 'Batting_Average', 'Matches_Bowled', 'Wickets_Taken', 'Bowling_Average']
@@ -696,7 +687,6 @@ if df is not None:
             "图14: 投手经济率象限分析": plot_fig14
         },
         "综合与相关性分析": {
-            "图6: 综合分析组合图": plot_fig6,
             "图7: 参赛场次与效率": plot_fig7,
             "图16: 接球能力与综合表现": plot_fig16
         },
