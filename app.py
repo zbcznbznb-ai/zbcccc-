@@ -640,82 +640,82 @@ def plot_fig16(df):
     slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
     x_line = np.linspace(x.min(), x.max(), 100)
     y_line = slope * x_line + intercept
-    ax.plot(x_line, y_line, 'r--', linewidth=2, label=f'回归线 (r={r_value:.2f})')
+    ax.plot(x_line, y_line, color='red', linewidth=2, label=f'回归线（r={r_value:.2f}）')
+
+    avg_catches, avg_perf = x.mean(), y.mean()
+    ax.axvline(x=avg_catches, color='black', linestyle='--', alpha=0.5)
+    ax.axhline(y=avg_perf, color='black', linestyle='--', alpha=0.5)
     
-    ax.set_xlabel('接球次数', fontsize=12)
-    ax.set_ylabel('综合表现得分', fontsize=12)
-    ax.set_title('2018-2024年球员接球次数与综合表现关系分析', fontsize=14, fontweight='bold')
-    ax.legend(fontsize=10)
-    ax.grid(alpha=0.3)
+    ax.text(avg_catches+2, avg_perf+10, '高接球+高表现\n（全能核心）', bbox=dict(boxstyle='round', facecolor='lightgreen', alpha=0.8))
+    ax.text(avg_catches-5, avg_perf+10, '低接球+高表现\n（进攻核心）', ha='right', bbox=dict(boxstyle='round', facecolor='lightyellow', alpha=0.8))
+    ax.text(avg_catches+2, avg_perf-10, '高接球+低表现\n（防守 specialists）', va='top', bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.8))
+    ax.text(avg_catches-5, avg_perf-10, '低接球+低表现\n（边缘球员）', ha='right', va='top', bbox=dict(boxstyle='round', facecolor='lightcoral', alpha=0.8))
+
+    ax.set_title(f'球员接球能力与综合表现相关性分析（2018-2024）\nPearson相关系数：{r_value:.2f}', fontsize=14, fontweight='bold')
+    ax.set_xlabel('年度接球次数')
+    ax.set_ylabel('综合表现得分')
     return fig
 
-# ===================== 4. 应用程序主界面 =====================
+# ===================== 4. Streamlit 页面布局 =====================
+st.title("🏏 IPL 顶级球员生命周期与表现可视化系统")
+st.markdown("---")
 
-# 创建一个包含所有绘图函数的字典
-plot_functions = {
-    "球员年度总跑位得分分布直方图": plot_fig1,
-    "三柱门数与投球平均失分数关系": plot_fig2,
-    "Virat Kohli 年度表现趋势线图": plot_fig3,
-    "不同年份球员击球平均率分布": plot_fig4,
-    "IPL顶级球员多维度表现对比雷达图": plot_fig5,
-    "注意：原代码生成的是一张18x24的大图": plot_fig6,
-    "效率散点图": plot_fig7,
-    "2010-2024年球员得分结构年度变化（堆叠面积图）": plot_fig8,
-    "不同击球平均率区间球员数量与得分分布": plot_fig9,
-    "生涯总得分TOP5球员年度得分趋势对比（2010-2024）": plot_fig10,
-    "投球平均失分数与三柱门数密度分布热力图": plot_fig11,
-    "2008-2024年IPL联赛参赛球员数量分布": plot_fig12,
-    "球员参赛年限与表现稳定性分析": plot_fig13,
-    "2020-2024年投手经济率与三柱门效率象限分析": plot_fig14,
-    "2010-2024年IPL联赛球员类型分布变化": plot_fig15,
-    "2018-2024年球员接球次数与综合表现关系分析": plot_fig16
-}
+DEFAULT_FILE = "data.csv"
+ALT_FILE = "6-球员生命周期_预处理后.csv"
 
-# 应用程序标题
-st.title('IPL 球员生命周期可视化分析系统')
+df = None
+if os.path.exists(DEFAULT_FILE):
+    df = load_and_process_data(DEFAULT_FILE)
+    st.sidebar.success(f"✅ 自动加载: {DEFAULT_FILE}")
+elif os.path.exists(ALT_FILE):
+    df = load_and_process_data(ALT_FILE)
+    st.sidebar.success(f"✅ 自动加载: {ALT_FILE}")
 
-# 文件上传部分
-st.sidebar.header('数据上传')
-uploaded_file = st.sidebar.file_uploader("选择CSV数据文件", type="csv")
+if st.sidebar.checkbox("上传新文件覆盖 (或手动上传)"):
+    uploaded_file = st.sidebar.file_uploader("上传 CSV", type=['csv'])
+    if uploaded_file is not None:
+        df = load_and_process_data(uploaded_file)
 
-if uploaded_file is not None:
-    # 加载和处理数据
-    df = load_and_process_data(uploaded_file)
-    st.sidebar.success("数据加载成功！")
+if df is not None:
+    chart_map = {
+        "数据总览": {
+            "图1: 球员年度得分分布": plot_fig1,
+            "图12: 参赛球员年份分布": plot_fig12,
+            "图15: 球员类型年度分布": plot_fig15
+        },
+        "击球表现分析": {
+            "图4: 击球平均率箱线图": plot_fig4,
+            "图8: 得分结构堆叠图": plot_fig8,
+            "图9: 平均率区间球员分布": plot_fig9,
+            "图10: TOP5球员得分趋势": plot_fig10,
+            "图13: 参赛年限与稳定性": plot_fig13
+        },
+        "投球表现分析": {
+            "图2: 三柱门数 vs 失分数": plot_fig2,
+            "图11: 投球效率热力图": plot_fig11,
+            "图14: 投手经济率象限分析": plot_fig14
+        },
+        "综合与相关性分析": {
+            "图6: 综合分析组合图": plot_fig6,
+            "图7: 参赛场次与效率": plot_fig7,
+            "图16: 接球能力与综合表现": plot_fig16
+        },
+        "球员特写": {
+            "图3: Virat Kohli 年度趋势": plot_fig3,
+            "图5: 顶级球员雷达图": plot_fig5
+        }
+    }
     
-    # 显示数据基本信息
-    st.sidebar.subheader('数据基本信息')
-    st.sidebar.write(f"总记录数: {len(df)}")
-    st.sidebar.write(f"总球员数: {df['Player_Name'].nunique()}")
-    st.sidebar.write(f"年份范围: {df['Year'].min()} - {df['Year'].max()}")
+    st.sidebar.header("📊 图表导航")
+    category = st.sidebar.selectbox("选择分析维度", list(chart_map.keys()))
+    chart_name = st.sidebar.radio("选择图表", list(chart_map[category].keys()))
     
-    # 图表选择部分
-    st.sidebar.subheader('图表选择')
-    selected_figure = st.sidebar.selectbox(
-        "选择要查看的图表",
-        list(plot_functions.keys())
-    )
-    
-    # 显示所选图表
-    st.header(selected_figure)
-    fig = plot_functions[selected_figure](df)
-    st.pyplot(fig)
-    plt.close(fig)  # 关闭图表以释放内存
-    
-    # 数据概览部分（可选）
-    if st.checkbox('显示数据概览'):
-        st.subheader('数据概览')
-        st.dataframe(df.head(10))
-        
-    # 原始数据下载部分（可选）
-    if st.checkbox('下载处理后的数据'):
-        csv = df.to_csv(index=False)
-        st.download_button(
-            label="下载CSV文件",
-            data=csv,
-            file_name="ipl_player_stats_processed.csv",
-            mime="text/csv"
-        )
+    st.subheader(f"📈 {chart_name}")
+    try:
+        fig = chart_map[category][chart_name](df)
+        st.pyplot(fig)
+    except Exception as e:
+        st.error(f"图表生成失败: {e}")
+        st.write("请检查数据文件是否正确")
 else:
-    st.info("请在左侧上传CSV数据文件开始分析")
-    st.image("https://upload.wikimedia.org/wikipedia/en/thumb/8/84/Indian_Premier_League_Official_Logo.svg/1200px-Indian_Premier_League_Official_Logo.svg.png", width=300)
+    st.info("👋 请上传数据文件 data.csv 以开始分析")
